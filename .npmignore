@@ -1,0 +1,9 @@
+node_modules
+*.ts
+!*.d.ts
+tsconfig.json
+.git
+.gitignore
+.npmignore
+*.log
+.DS_Store

@@ -1,0 +1,33 @@
+{
+  "name": "@czf0613/http_client",
+  "version": "0.0.1",
+  "description": "Simple http client with fetch, supporting modified SSE protocol",
+  "keywords": [
+    "http client",
+    "Typescript",
+    "browswer",
+    "SSE"
+  ],
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "prepack": "rm -rf dist || true && npm run build",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/czf0613/http_client_ts.git"
+  },
+  "author": "czf0613",
+  "email": "1354016594@qq.com",
+  "license": "MIT",
+  "homepage": "https://github.com/czf0613/http_client_ts#readme",
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}

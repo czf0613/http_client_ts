@@ -1,6 +1,7 @@
 {
   "name": "@czf0613/http_client",
-  "version": "0.0.1",
+  "private": false,
+  "version": "0.0.2",
   "description": "Simple http client with fetch, supporting modified SSE protocol",
   "keywords": [
     "http client",
@@ -14,14 +15,17 @@
   "files": [
     "dist"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsc",
-    "prepack": "rm -rf dist || true && npm run build",
+    "prepack": "npm run build",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/czf0613/http_client_ts.git"
+    "url": "git+https://github.com/czf0613/http_client_ts.git"
   },
   "author": "czf0613",
   "email": "1354016594@qq.com",

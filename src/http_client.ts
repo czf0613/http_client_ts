@@ -1,3 +1,5 @@
+import { sleep, TIMEOUT_MARKER } from './timer';
+
 /**
  * 拼接URL和查询参数，会自动处理转义
  * @param url 基础URL，不要带任何查询参数
@@ -34,6 +36,7 @@ const DEFAULT_TIMEOUT = 5000;
  * @param queryParams 查询参数，会被自动拼接到url中（会自动进行转义）
  * @param customHeaders 自定义请求头，不需要写content-type这种会被自动处理的头
  * @param body 请求体，适用于POST/PUT请求，传入字符串、数字会被处理成text/plain，传入对象会被处理成application/json，传入FormData会被处理成multipart/form-data，目前不建议直接发送二进制对象
+ * @param timeoutMs 超时时间，单位毫秒，默认5秒。这个超时的时间指的是发出请求，到接收到请求头的时间，不包含读取请求体的时间。如果需要控制读取请求体的超时，请自行用Promise.race实现。
  * @returns 返回Fetch API的Response对象
  */
 export async function makeHttpRequest(
@@ -57,7 +60,9 @@ export async function makeHttpRequest(
     if (body == null) {
         // 无body时，不设置Content-Type
     } else if (body instanceof FormData) {
-        // 使用FormData时，浏览器会自动设置Content-Type和boundary，不要多手
+        // 使用FormData时，浏览器会自动设置Content-Type和boundary，不要多手，有我也得给你删了
+        delete customHeaders['Content-Type'];
+        delete customHeaders['content-type'];
     } else if (typeof body === 'string') {
         customHeaders['Content-Type'] = 'text/plain';
     } else if (typeof body === 'number') {
@@ -89,6 +94,8 @@ export async function makeHttpRequest(
  * 目前这个接口只支持处理后端不停发送data: xxx\n\n这种格式的响应
  * 默认不抛出异常，会在生成器的返回值里面指明成功还是失败
  * @see makeHttpRequest 这里的参数说明
+ * @param connectTimeoutMs 连接超时时间，单位毫秒，默认30秒
+ * @param messageTimeoutMs 每条消息超时时间，单位毫秒，默认30秒
  * @returns 返回一个异步生成器，每次迭代返回一个字符串（流式响应）
  */
 export async function* makeSSERequest(
@@ -96,9 +103,11 @@ export async function* makeSSERequest(
     method: HttpMethod = 'GET',
     queryParams: Record<string, string | number> | null = null,
     customHeaders: Record<string, string> | null = null,
-    body: any | null = null
+    body: any | null = null,
+    connectTimeoutMs: number = 30000,
+    messageTimeoutMs: number = 30000,
 ): AsyncGenerator<string, boolean, undefined> {
-    const resp = await makeHttpRequest(url, method, queryParams, customHeaders, body, 30000);
+    const resp = await makeHttpRequest(url, method, queryParams, customHeaders, body, connectTimeoutMs);
     if (!resp.ok) {
         return false;
     }
@@ -111,7 +120,17 @@ export async function* makeSSERequest(
 
     try {
         while (true) {
-            const { done, value } = await reader.read();
+            const raceResult = await Promise.race([
+                sleep(messageTimeoutMs),
+                reader.read(),
+            ]);
+
+            // 如果timeout先完成，说明超时了
+            if (raceResult === TIMEOUT_MARKER) {
+                throw new Error('SSE message timeout');
+            }
+
+            const { done, value } = raceResult;
             if (done || !value) {
                 break;
             }

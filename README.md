@@ -128,6 +128,8 @@ Makes an SSE (Server-Sent Events) request and returns an async generator that yi
 - `queryParams` (Record<string, string | number> | null): Query parameters to be appended to the URL. Default: null
 - `customHeaders` (Record<string, string> | null): Custom headers. **Important: Do NOT include Content-Type in customHeaders.** Default: null
 - `body` (any | null): Request body for POST/PUT requests. Default: null
+- `connectTimeoutMs` (number): Connection timeout in milliseconds. Default: 30000
+- `messageTimeoutMs` (number): Timeout for each message read in milliseconds. Default: 30000
 
 **Note:** For detailed parameter descriptions, see [`makeHttpRequest`](#makehttprequest) above. This function only handles responses in the format `data: xxx\n\n`. It does not throw exceptions by default; success/failure is indicated in the generator's return value.
 
@@ -144,7 +146,9 @@ async function streamChat() {
     'POST',
     null,
     null,
-    { message: 'Hello' }
+    { message: 'Hello' },
+    30000,  // connectTimeoutMs
+    10000   // messageTimeoutMs
   );
 
   // Manually iterate to receive chunks

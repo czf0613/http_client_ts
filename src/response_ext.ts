@@ -1,3 +1,5 @@
+import { sleep, TIMEOUT_MARKER, DEFAULT_TIMEOUT } from "./timer";
+
 /**
  * 扩展的Response类，使用Proxy自动代理所有Response属性和方法
  * 用户可以像普通的Response对象一样使用，也可以调用额外的方法
@@ -42,6 +44,108 @@ export class ExtendedResponse implements Response {
     // clone方法要特殊处理
     clone(): ExtendedResponse {
         return ExtendedResponse.create(this._response.clone());
+    }
+
+    // 以下是一些额外的方法
+
+    /**
+     * 从响应体中读取JSON数据，支持超时设置
+     * @param readTimeoutMs 读取请求体的超时时间，单位毫秒
+     * @returns 解析后的JSON数据
+     * @throws 如果读取超时或解析失败，会抛出错误
+     */
+    async jsonWithTimeout<T>(readTimeoutMs: number = DEFAULT_TIMEOUT): Promise<T> {
+        const raceResult = await Promise.race([
+            sleep(readTimeoutMs),
+            this._response.json(),
+        ]);
+
+        // 如果timeout先完成，说明超时了
+        if (raceResult === TIMEOUT_MARKER) {
+            throw new Error(`JSON read timeout after ${readTimeoutMs}ms`);
+        }
+
+        return raceResult as T;
+    }
+
+    /**
+     * 从响应体中读取文本数据，支持超时设置
+     * @param readTimeoutMs 读取请求体的超时时间，单位毫秒
+     * @returns 解析后的文本数据
+     * @throws 如果读取超时或解析失败，会抛出错误
+     */
+    async textWithTimeout(readTimeoutMs: number = DEFAULT_TIMEOUT): Promise<string> {
+        const raceResult = await Promise.race([
+            sleep(readTimeoutMs),
+            this._response.text(),
+        ]);
+
+        // 如果timeout先完成，说明超时了
+        if (raceResult === TIMEOUT_MARKER) {
+            throw new Error(`Text read timeout after ${readTimeoutMs}ms`);
+        }
+
+        return raceResult as string;
+    }
+
+    /**
+     * 从响应体中读取数组缓冲区数据，支持超时设置
+     * @param readTimeoutMs 读取请求体的超时时间，单位毫秒
+     * @returns 解析后的数组缓冲区数据
+     * @throws 如果读取超时或解析失败，会抛出错误
+     */
+    async arrayBufferWithTimeout(readTimeoutMs: number = DEFAULT_TIMEOUT): Promise<ArrayBuffer> {
+        const raceResult = await Promise.race([
+            sleep(readTimeoutMs),
+            this._response.arrayBuffer(),
+        ]);
+
+        // 如果timeout先完成，说明超时了
+        if (raceResult === TIMEOUT_MARKER) {
+            throw new Error(`ArrayBuffer read timeout after ${readTimeoutMs}ms`);
+        }
+
+        return raceResult as ArrayBuffer;
+    }
+
+    /**
+     * 从响应体中读取Blob数据，支持超时设置
+     * @param readTimeoutMs 读取请求体的超时时间，单位毫秒
+     * @returns 解析后的Blob数据
+     * @throws 如果读取超时或解析失败，会抛出错误
+     */
+    async blobWithTimeout(readTimeoutMs: number = DEFAULT_TIMEOUT): Promise<Blob> {
+        const raceResult = await Promise.race([
+            sleep(readTimeoutMs),
+            this._response.blob(),
+        ]);
+
+        // 如果timeout先完成，说明超时了
+        if (raceResult === TIMEOUT_MARKER) {
+            throw new Error(`Blob read timeout after ${readTimeoutMs}ms`);
+        }
+
+        return raceResult as Blob;
+    }
+
+    /**
+     * 从响应体中读取字节数据，支持超时设置
+     * @param readTimeoutMs 读取请求体的超时时间，单位毫秒
+     * @returns 解析后的字节数据
+     * @throws 如果读取超时或解析失败，会抛出错误
+     */
+    async bytesWithTimeout(readTimeoutMs: number = DEFAULT_TIMEOUT): Promise<Uint8Array<ArrayBuffer>> {
+        const raceResult = await Promise.race([
+            sleep(readTimeoutMs),
+            this._response.bytes(),
+        ]);
+
+        // 如果timeout先完成，说明超时了
+        if (raceResult === TIMEOUT_MARKER) {
+            throw new Error(`Bytes read timeout after ${readTimeoutMs}ms`);
+        }
+
+        return raceResult as Uint8Array<ArrayBuffer>;
     }
 
     // 声明Response接口的所有属性（实际通过Proxy代理访问，这里的都是骗编译器的）

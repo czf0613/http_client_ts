@@ -74,7 +74,32 @@ Makes an HTTP request with default configuration using the Fetch API.
 
 **Returns:** `Promise<ExtendedResponse>` - Extended Response object with additional helper methods. It's the same as the standard Response object, but with additional methods for convenience.
 
-**Note:** This function does not handle exceptions by default. You should wrap it in a try-catch block.
+#### ExtendedResponse Methods
+
+In addition to all standard Response methods (`json()`, `text()`, `arrayBuffer()`, `blob()`, `bytes()`), ExtendedResponse provides the following timeout-enabled methods:
+
+**`jsonWithTimeout<T>(readTimeoutMs?: number): Promise<T>`**
+Reads the response body as JSON with a configurable timeout. Default timeout is 5000ms.
+- Throws `Error` with message `"JSON read timeout after Xms"` if timeout occurs
+- Throws parsing errors if JSON is invalid
+
+**`textWithTimeout(readTimeoutMs?: number): Promise<string>`**
+Reads the response body as text with a configurable timeout. Default timeout is 5000ms.
+- Throws `Error` with message `"Text read timeout after Xms"` if timeout occurs
+
+**`arrayBufferWithTimeout(readTimeoutMs?: number): Promise<ArrayBuffer>`**
+Reads the response body as ArrayBuffer with a configurable timeout. Default timeout is 5000ms.
+- Throws `Error` with message `"ArrayBuffer read timeout after Xms"` if timeout occurs
+
+**`blobWithTimeout(readTimeoutMs?: number): Promise<Blob>`**
+Reads the response body as Blob with a configurable timeout. Default timeout is 5000ms.
+- Throws `Error` with message `"Blob read timeout after Xms"` if timeout occurs
+
+**`bytesWithTimeout(readTimeoutMs?: number): Promise<Uint8Array<ArrayBuffer>>`**
+Reads the response body as Uint8Array with a configurable timeout. Default timeout is 5000ms.
+- Throws `Error` with message `"Bytes read timeout after Xms"` if timeout occurs
+
+**Note:** This function(including methods in `ExtendedResponse`) does not handle exceptions by default. You should wrap it in a try-catch block or using a promise chain.
 
 **Example:**
 

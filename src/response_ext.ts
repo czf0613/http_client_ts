@@ -30,6 +30,11 @@ export class ExtendedResponse implements Response {
                     case '_response':
                     case 'create':
                     case 'clone':
+                    case 'jsonWithTimeout':
+                    case 'textWithTimeout':
+                    case 'arrayBufferWithTimeout':
+                    case 'blobWithTimeout':
+                    case 'bytesWithTimeout':
                         return (target as any)[prop];
                     default:
                         // 否则从原始Response获取
@@ -85,7 +90,7 @@ export class ExtendedResponse implements Response {
             throw new Error(`Text read timeout after ${readTimeoutMs}ms`);
         }
 
-        return raceResult as string;
+        return raceResult;
     }
 
     /**
@@ -105,7 +110,7 @@ export class ExtendedResponse implements Response {
             throw new Error(`ArrayBuffer read timeout after ${readTimeoutMs}ms`);
         }
 
-        return raceResult as ArrayBuffer;
+        return raceResult;
     }
 
     /**
@@ -125,7 +130,7 @@ export class ExtendedResponse implements Response {
             throw new Error(`Blob read timeout after ${readTimeoutMs}ms`);
         }
 
-        return raceResult as Blob;
+        return raceResult;
     }
 
     /**
@@ -145,7 +150,7 @@ export class ExtendedResponse implements Response {
             throw new Error(`Bytes read timeout after ${readTimeoutMs}ms`);
         }
 
-        return raceResult as Uint8Array<ArrayBuffer>;
+        return raceResult;
     }
 
     // 声明Response接口的所有属性（实际通过Proxy代理访问，这里的都是骗编译器的）

@@ -22,7 +22,7 @@
     "build": "tsc",
     "prepack": "npm run build",
     "pretest": "npm run build",
-    "test": "npx tsx tests/test_bing.ts"
+    "test": "npx tsx tests/run_all.ts"
   },
   "repository": {
     "type": "git",

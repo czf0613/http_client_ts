@@ -68,9 +68,9 @@ Makes an HTTP request with default configuration using the Fetch API.
   - String or number: sent as `text/plain`
   - Object: sent as `application/json`
   - FormData: sent as `multipart/form-data`
-- `timeoutMs` (number): Timeout in milliseconds. Default: 5000
+- `timeoutMs` (number): Timeout in milliseconds. Default: 5000. **Note: this value is the `connect timeout`, not the total request timeout. You need to handle the `read timeout` in your application logic.**
 
-**Returns:** Promise<Response> - Fetch API Response object
+**Returns:** Promise<ExtendedResponse> - Extended Response object with additional helper methods. It's the same as the standard Response object, but with additional methods for convenience.
 
 **Note:** This function does not handle exceptions by default. You should wrap it in a try-catch block.
 

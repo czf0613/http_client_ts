@@ -7,3 +7,5 @@ tsconfig.json
 .npmignore
 *.log
 .DS_Store
+tests/
+src/

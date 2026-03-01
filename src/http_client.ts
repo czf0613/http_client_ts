@@ -1,4 +1,5 @@
-import { sleep, TIMEOUT_MARKER } from './timer';
+import { sleep, TIMEOUT_MARKER, DEFAULT_TIMEOUT } from './timer';
+import { ExtendedResponse } from './response_ext';
 
 /**
  * 拼接URL和查询参数，会自动处理转义
@@ -25,9 +26,6 @@ export function joinUrlWithParams(url: string, queryParams: Record<string, strin
 
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'HEAD';
 
-// 默认超时时间，单位毫秒
-const DEFAULT_TIMEOUT = 5000;
-
 /**
  * 发起一个带有默认配置的 HTTP 请求
  * 默认不处理异常，需要try catch
@@ -37,7 +35,7 @@ const DEFAULT_TIMEOUT = 5000;
  * @param customHeaders 自定义请求头，不需要写content-type这种会被自动处理的头
  * @param body 请求体，适用于POST/PUT请求，传入字符串、数字会被处理成text/plain，传入对象会被处理成application/json，传入FormData会被处理成multipart/form-data，目前不建议直接发送二进制对象
  * @param timeoutMs 超时时间，单位毫秒，默认5秒。这个超时的时间指的是发出请求，到接收到请求头的时间，不包含读取请求体的时间。如果需要控制读取请求体的超时，请自行用Promise.race实现。
- * @returns 返回Fetch API的Response对象
+ * @returns 返回Fetch API的Response对象，用法完全一样，但是会被包装成ExtendedResponse，增加了一些方法
  */
 export async function makeHttpRequest(
     url: string,
@@ -46,7 +44,7 @@ export async function makeHttpRequest(
     customHeaders: Record<string, string> | null = null,
     body: any | null = null,
     timeoutMs: number = DEFAULT_TIMEOUT
-): Promise<Response> {
+): Promise<ExtendedResponse> {
     // 处理查询参数
     if (queryParams != null) {
         url = joinUrlWithParams(url, queryParams);
@@ -85,7 +83,7 @@ export async function makeHttpRequest(
     });
     clearTimeout(timeoutId);
 
-    return resp;
+    return ExtendedResponse.create(resp);
 }
 
 /**
@@ -107,18 +105,21 @@ export async function* makeSSERequest(
     connectTimeoutMs: number = 30000,
     messageTimeoutMs: number = 30000,
 ): AsyncGenerator<string, boolean, undefined> {
-    const resp = await makeHttpRequest(url, method, queryParams, customHeaders, body, connectTimeoutMs);
-    if (!resp.ok) {
-        return false;
-    }
-
-    const reader = resp.body?.getReader();
-    if (reader == null) {
-        return false;
-    }
-    let buffer = new Uint8Array(0)
+    // 最后需要释放它的锁，所以需要写出来
+    let reader: ReadableStreamDefaultReader<Uint8Array<ArrayBuffer>> | undefined = void 0;
 
     try {
+        const resp = await makeHttpRequest(url, method, queryParams, customHeaders, body, connectTimeoutMs);
+        if (!resp.ok) {
+            return false;
+        }
+
+        reader = resp.body?.getReader();
+        if (reader == null) {
+            return false;
+        }
+        let buffer = new Uint8Array(0)
+
         while (true) {
             const raceResult = await Promise.race([
                 sleep(messageTimeoutMs),
@@ -188,7 +189,9 @@ export async function* makeSSERequest(
         console.error('SSE error:', error);
         return false;
     } finally {
-        reader.releaseLock();
+        if (reader != null) {
+            reader.releaseLock();
+        }
     }
 
     return true;

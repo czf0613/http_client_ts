@@ -68,7 +68,7 @@ Makes an HTTP request with default configuration using the Fetch API.
   - String or number: sent as `text/plain`
   - Object: sent as `application/json`
   - FormData: sent as `multipart/form-data`
-- `timeoutMs` (number): Timeout in milliseconds. Default: 5000. **Note: this value is the `connect timeout`, not the total request timeout. You need to handle the `read timeout` in your application logic.**
+- `timeoutMs` (number): Timeout in milliseconds. Default: 5000. **Note: this value is the *connect timeout*, not the total request timeout. You need to handle the *read timeout* in your application logic.**
 
 **Returns:** Promise<ExtendedResponse> - Extended Response object with additional helper methods. It's the same as the standard Response object, but with additional methods for convenience.
 
@@ -133,6 +133,8 @@ Makes an SSE (Server-Sent Events) request and returns an async generator that yi
 
 **Note:** For detailed parameter descriptions, see [`makeHttpRequest`](#makehttprequest) above. This function only handles responses in the format `data: xxx\n\n`. It does not throw exceptions by default; success/failure is indicated in the generator's return value.
 
+This method will **not** throw exceptions, you can get the success/failure status from the generator's return value.
+
 **Returns:** AsyncGenerator<string, boolean, undefined> - An async generator that yields each message as a string, and returns a boolean indicating success (true) or failure (false)
 
 **Example:**
@@ -168,6 +170,14 @@ async function streamChat() {
     console.log('Received:', value);
   }
 }
+```
+
+## Test
+
+Run tests using:
+
+```bash
+npm test
 ```
 
 ## License

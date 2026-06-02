@@ -25,7 +25,7 @@ export function joinUrlWithParams(url: string, queryParams: Record<string, strin
     return `${url}?${params.toString()}`;
 }
 
-type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'HEAD';
+export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'HEAD';
 
 /**
  * 发起一个带有默认配置的 HTTP 请求

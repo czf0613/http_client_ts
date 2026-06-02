@@ -1,12 +1,12 @@
 {
   "name": "@czf0613/http_client",
   "private": false,
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Simple http client with fetch, supporting modified SSE protocol",
   "keywords": [
     "http client",
     "Typescript",
-    "browswer",
+    "browser",
     "SSE"
   ],
   "type": "module",
@@ -28,8 +28,7 @@
     "type": "git",
     "url": "git+https://github.com/czf0613/http_client_ts.git"
   },
-  "author": "czf0613",
-  "email": "1354016594@qq.com",
+  "author": "czf0613 <1354016594@qq.com>",
   "license": "MIT",
   "homepage": "https://github.com/czf0613/http_client_ts#readme",
   "devDependencies": {

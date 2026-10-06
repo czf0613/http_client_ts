@@ -1,5 +1,7 @@
 # @czf0613/http_client
 
+[![CI](https://github.com/czf0613/http_client_ts/actions/workflows/ci.yml/badge.svg)](https://github.com/czf0613/http_client_ts/actions/workflows/ci.yml)
+
 A small Fetch wrapper with response-header timeouts, optional body-read timeouts, cancellation, and SSE streaming. Written in TypeScript, with ES modules, declaration files, and no runtime dependencies.
 
 ## Installation and runtime
@@ -12,7 +14,7 @@ Use native ESM in Node or a browser application with a bundler. The runtime must
 
 Response readers depend on the runtime's native implementation. In particular, **`bytes()` and `bytesWithTimeout()` require native `Response.bytes()`**; there is no polyfill or fallback. An environment without it can still import the package and use other supported methods. The unavailable method fails only when called.
 
-The current regression suite is verified on Node **22.21.1**. This is a tested version, not a declared minimum. A browser/version compatibility matrix and CommonJS distribution are not provided.
+The regression suite has been verified locally on Node **22.21.1**. GitHub Actions runs the same suite on Ubuntu with Node **22 and 24**; see the CI badge for current results. These are test targets, not a declared minimum. A browser/version compatibility matrix and CommonJS distribution are not provided.
 
 ## Quick start
 
@@ -209,6 +211,8 @@ npm test
 ```
 
 `npm test` builds with TypeScript, then runs JavaScript tests with native `node --test`. Tests import the compiled public entry, use synthetic streams and a local HTTP server, and install a locally packed tarball offline to verify import by package name. They do not access third-party services or use a TypeScript runtime loader.
+
+[CI](.github/workflows/ci.yml) runs `npm ci` and `npm test` on pushes to `master`, pull requests, and manual dispatches. Both Node versions run independently, including the local HTTP and packed-package checks.
 
 `npm run build` generates ignored `dist/` JavaScript and declarations. `npm pack --dry-run` builds and previews package contents without publishing.
 

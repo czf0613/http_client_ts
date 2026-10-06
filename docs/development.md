@@ -50,6 +50,14 @@ node --test --test-timeout=10000 tests/sse.test.js
 
 新增测试应针对用户可见的回归和资源生命周期，使用小型合成数据和有界等待。不把不正确的历史行为作为兼容性断言，也不以 TypeScript 类型检查替代运行时测试。
 
+## GitHub Actions
+
+[CI 工作流](../.github/workflows/ci.yml) 在推送 master、pull request 和手动触发时运行。Ubuntu 上分别使用 Node 22、24，两项任务独立执行 `npm ci` 和 `npm test`；构建、本地连接测试、tarball 离线安装及原生导入都包含在内。
+
+工作流缓存 npm 下载内容，依据锁文件恢复依赖；每项任务上限 10 分钟。checkout/setup-node 固定到已核对的版本 commit，token 只需 contents: read。同一分支的新运行取消旧运行，矩阵中一项失败不会提前取消另一项。
+
+实际运行结果以 [GitHub Actions](https://github.com/czf0613/http_client_ts/actions/workflows/ci.yml) 为准。这里的 CI 只验证 Node，不构成浏览器兼容性验收，也不执行 npm 发布。
+
 ## 包内容与发布
 
 当前版本为 `0.1.3`，package.json 与 package-lock.json 的两处版本一致。包声明 `type: module`，入口为 `dist/index.js`，类型入口为 `dist/index.d.ts`。

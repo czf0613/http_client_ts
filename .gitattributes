@@ -1,0 +1,2 @@
+# Keep runtime tests out of GitHub's language statistics.
+tests/** -linguist-detectable

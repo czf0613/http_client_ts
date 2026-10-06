@@ -2,7 +2,7 @@
   "name": "@czf0613/http_client",
   "private": false,
   "version": "0.1.3",
-  "description": "Simple http client with fetch, supporting modified SSE protocol",
+  "description": "Fetch client with request and body read timeouts, cancellation, and SSE streaming",
   "keywords": [
     "http client",
     "Typescript",
@@ -22,7 +22,7 @@
     "build": "tsc",
     "prepack": "npm run build",
     "pretest": "npm run build",
-    "test": "npx tsx tests/run_all.ts"
+    "test": "node --test --test-timeout=10000 tests/*.test.js"
   },
   "repository": {
     "type": "git",

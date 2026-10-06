@@ -1,199 +1,158 @@
-import { sleep, TIMEOUT_MARKER, DEFAULT_TIMEOUT } from './timer';
-import { ExtendedResponse } from './response_ext';
-import { extractSSELine } from './parser';
+import { DEFAULT_TIMEOUT, validateTimeout, withTimeout } from './timer.js';
+import { ExtendedResponse } from './response_ext.js';
+import { DEFAULT_MAX_EVENT_BYTES, SSEParser, validateEventLimit } from './parser.js';
 
-/**
- * 拼接URL和查询参数，会自动处理转义
- * @param url 基础URL，不要带任何查询参数
- * @param queryParams 查询参数对象，键值对形式，值可以是字符串或数字，但是目前不建议出现同key的对象
- * @returns 
- */
-export function joinUrlWithParams(url: string, queryParams: Record<string, string | number | boolean>): string {
-    if (Object.keys(queryParams).length === 0) {
-        return url;
-    }
+type QueryParams = Record<string, string | number | boolean>;
+export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD';
 
-    const params = new URLSearchParams();
-    Object.entries(queryParams).forEach(([key, value]) => {
-        if (typeof value === 'string') {
-            params.append(key, value);
-        } else {
-            params.append(key, value.toString());
+/** 合并查询参数；同名键由新值覆盖，保留 fragment，支持相对 URL。 */
+export function joinUrlWithParams(url: string, queryParams: QueryParams): string {
+    const entries = Object.entries(queryParams);
+    if (entries.length === 0) return url;
+    const hashIndex = url.indexOf('#');
+    const fragment = hashIndex < 0 ? '' : url.slice(hashIndex);
+    const base = hashIndex < 0 ? url : url.slice(0, hashIndex);
+    const queryIndex = base.indexOf('?');
+    const path = queryIndex < 0 ? base : base.slice(0, queryIndex);
+    const params = new URLSearchParams(queryIndex < 0 ? '' : base.slice(queryIndex + 1));
+    for (const [key, value] of entries) {
+        if (!['string', 'number', 'boolean'].includes(typeof value)) {
+            throw new TypeError(`Query parameter ${key} must be a string, number or boolean`);
         }
-    });
-
-    return `${url}?${params.toString()}`;
+        params.set(key, String(value));
+    }
+    return `${path}?${params.toString()}${fragment}`;
 }
 
-export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'HEAD';
+function prepareBody(body: unknown, headers: Headers): BodyInit | null {
+    if (body == null) return null;
+    if (typeof body === 'string' || typeof body === 'number') {
+        if (!headers.has('Content-Type')) headers.set('Content-Type', 'text/plain');
+        return String(body);
+    }
+    if (typeof FormData !== 'undefined' && body instanceof FormData) {
+        headers.delete('Content-Type');
+        return body;
+    }
+    if ((typeof Blob !== 'undefined' && body instanceof Blob)
+        || (typeof URLSearchParams !== 'undefined' && body instanceof URLSearchParams)
+        || body instanceof ArrayBuffer || ArrayBuffer.isView(body)) {
+        return body as BodyInit;
+    }
+    if (typeof body === 'object'
+        && (Array.isArray(body) || Object.getPrototypeOf(body) === Object.prototype || Object.getPrototypeOf(body) === null)) {
+        if (!headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
+        const json = JSON.stringify(body);
+        if (json !== undefined) return json;
+    }
+    throw new TypeError('Unsupported request body; use text, a number, JSON objects/arrays, FormData, Blob, URLSearchParams or binary buffers');
+}
 
 /**
- * 发起一个带有默认配置的 HTTP 请求
- * 默认不处理异常，需要try catch
- * @param url 请求的URL，不要拼接查询参数，但是要提供path params
- * @param method HTTP方法，默认为GET
- * @param queryParams 查询参数，会被自动拼接到url中（会自动进行转义）
- * @param customHeaders 自定义请求头，不需要写content-type这种会被自动处理的头
- * @param body 请求体，适用于POST/PUT请求，传入字符串、数字会被处理成text/plain，传入对象会被处理成application/json，传入FormData会被处理成multipart/form-data，目前不建议直接发送二进制对象
- * @param timeoutMs 超时时间，单位毫秒，默认5秒。这个超时的时间指的是发出请求，到接收到请求头的时间，不包含读取请求体的时间。如果需要控制读取请求体的超时，请自行用Promise.race实现。
- * @returns 返回Fetch API的Response对象，用法完全一样，但是会被包装成ExtendedResponse，增加了一些方法
+ * 发起 HTTP 请求。非 OK 状态仍返回响应，网络错误、超时及取消向外传播。
+ * @param timeoutMs 从 fetch 开始到收到响应头的期限，默认 5000 ms；0 关闭。
+ * 响应体需要独立使用 jsonWithTimeout/textWithTimeout 等方法控制读取期限。
+ * @param signal 可选的外部取消信号，对等待响应头和响应体读取均有效。
  */
 export async function makeHttpRequest(
     url: string,
     method: HttpMethod = 'GET',
-    queryParams: Record<string, string | number> | null = null,
+    queryParams: QueryParams | null = null,
     customHeaders: Record<string, string> | null = null,
     body: any | null = null,
-    timeoutMs: number = DEFAULT_TIMEOUT
+    timeoutMs: number = DEFAULT_TIMEOUT,
+    signal?: AbortSignal,
 ): Promise<ExtendedResponse> {
-    // 处理查询参数
-    if (queryParams != null) {
-        url = joinUrlWithParams(url, queryParams);
-    }
-
-    // 处理header设定，主要是处理Content-Type
-    if (customHeaders == null) {
-        customHeaders = {};
-    }
-
-    if (body == null) {
-        // 无body时，不设置Content-Type
-    } else if (body instanceof FormData) {
-        // 使用FormData时，浏览器会自动设置Content-Type和boundary，不要多手，有我也得给你删了
-        delete customHeaders['Content-Type'];
-        delete customHeaders['content-type'];
-    } else if (typeof body === 'string') {
-        customHeaders['Content-Type'] = 'text/plain';
-    } else if (typeof body === 'number') {
-        customHeaders['Content-Type'] = 'text/plain';
-        body = body.toString();
-    } else if (typeof body === 'object') {
-        customHeaders['Content-Type'] = 'application/json';
-        body = JSON.stringify(body);
-    }
-
-    // 配置超时
+    validateTimeout(timeoutMs);
+    if (signal?.aborted) throw signal.reason;
+    if (queryParams != null) url = joinUrlWithParams(url, queryParams);
+    const headers = new Headers(customHeaders ?? {});
+    const requestBody = prepareBody(body, headers);
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    const abort = () => controller.abort(signal!.reason);
+    const cleanup = () => signal?.removeEventListener('abort', abort);
+    signal?.addEventListener('abort', abort, { once: true });
+    // headers getter 或 JSON.toJSON 也可能在准备参数时触发取消。
+    if (signal?.aborted) abort();
 
-    const resp = await fetch(url, {
-        method: method,
-        headers: customHeaders,
-        body: body,
-        signal: controller.signal,
-    });
-    clearTimeout(timeoutId);
-
-    return ExtendedResponse.create(resp);
+    try {
+        const response = await withTimeout(async () => {
+            const response = await fetch(url, { method, headers, body: requestBody, signal: controller.signal });
+            if (controller.signal.aborted) {
+                void response.body?.cancel(controller.signal.reason).catch(() => {});
+                throw controller.signal.reason;
+            }
+            return response;
+        }, timeoutMs, `Request timeout after ${timeoutMs}ms`, controller.signal, reason => controller.abort(reason));
+        return ExtendedResponse.create(response, controller.signal, cleanup);
+    } catch (error) {
+        cleanup();
+        throw error;
+    }
 }
 
 /**
- * 发起一个SSE请求，返回一个异步生成器，每次迭代返回一个字符串（流式响应）
- * 这个方法是拿来补充浏览器里面的EventSource的，扩展了很多没有的功能，跟原版的SSE协议不完全兼容。
- * 目前这个接口只支持处理后端不停发送data: xxx\n\n这种格式的响应
- * 默认不抛出异常，会在生成器的返回值里面指明成功还是失败
- * @see makeHttpRequest 这里的参数说明
- * @param connectTimeoutMs 连接超时时间，单位毫秒，默认30秒
- * @param messageTimeoutMs 每条消息超时时间，单位毫秒，默认30秒
- * @returns 返回一个异步生成器，每次迭代返回一个字符串（流式响应）
+ * 读取标准 SSE 的 data 字段，支持 for await；失败抛出异常，正常结束返回 true。
+ * @param connectTimeoutMs 响应头等待期限，默认 30000 ms；0 关闭。
+ * @param messageTimeoutMs 每次 reader.read() 的期限，默认 30000 ms；0 关闭。
+ * @param signal 外部取消信号，可中断等待中的读取。
+ * @param maxEventBytes 单个事件各行内容的字节上限，不含换行；默认 8 MiB。
+ * 支持 LF/CRLF/CR、BOM、注释和多行 data；EOF 丢弃未被空行终止的事件。
  */
 export async function* makeSSERequest(
     url: string,
     method: HttpMethod = 'GET',
-    queryParams: Record<string, string | number> | null = null,
+    queryParams: QueryParams | null = null,
     customHeaders: Record<string, string> | null = null,
     body: any | null = null,
     connectTimeoutMs: number = 30000,
     messageTimeoutMs: number = 30000,
+    signal?: AbortSignal,
+    maxEventBytes: number = DEFAULT_MAX_EVENT_BYTES,
 ): AsyncGenerator<string, boolean, undefined> {
-    // 最后需要释放它的锁，所以需要写出来
-    let reader: ReadableStreamDefaultReader<Uint8Array<ArrayBuffer>> | undefined = void 0;
+    validateTimeout(connectTimeoutMs, 'connectTimeoutMs');
+    validateTimeout(messageTimeoutMs, 'messageTimeoutMs');
+    validateEventLimit(maxEventBytes);
+    const headers = { ...customHeaders };
+    if (!Object.keys(headers).some(key => key.toLowerCase() === 'accept')) headers.Accept = 'text/event-stream';
+    let response: ExtendedResponse | undefined;
+    let reader: ReadableStreamDefaultReader<Uint8Array<ArrayBuffer>> | undefined;
+    let completed = false;
+    let failure: unknown;
 
     try {
-        const resp = await makeHttpRequest(url, method, queryParams, customHeaders, body, connectTimeoutMs);
-        if (!resp.ok) {
-            return false;
+        response = await makeHttpRequest(url, method, queryParams, headers, body, connectTimeoutMs, signal);
+        if (!response.ok) {
+            throw Object.assign(new Error(`SSE request failed with HTTP ${response.status} ${response.statusText}`.trim()), {
+                name: 'HTTPError', status: response.status, statusText: response.statusText,
+            });
         }
-
-        reader = resp.body?.getReader();
-        if (reader == null) {
-            return false;
-        }
-        let buffer = new Uint8Array(0)
-
+        if (response.body === null) throw new Error('SSE response has no body');
+        reader = response.body.getReader();
+        const parser = new SSEParser(maxEventBytes);
         while (true) {
-            const raceResult = await Promise.race([
-                sleep(messageTimeoutMs),
-                reader.read(),
-            ]);
-
-            // 如果timeout先完成，说明超时了
-            if (raceResult === TIMEOUT_MARKER) {
-                throw new Error('SSE message timeout');
+            const result = await withTimeout(
+                () => reader!.read(), messageTimeoutMs,
+                `SSE read timeout after ${messageTimeoutMs}ms`, signal,
+            );
+            if (result.done) {
+                completed = true;
+                return true;
             }
-
-            const { done, value } = raceResult;
-            if (done || !value) {
-                break;
-            }
-
-            // 拼接之前的残留数据
-            let tempBuffer = new Uint8Array(buffer.length + value.length);
-            tempBuffer.set(buffer, 0);
-            tempBuffer.set(value, buffer.length);
-            buffer = tempBuffer;
-
-            if (buffer.length < 8) {
-                // 每行数据至少都有'data: \n\n'，不够8个字节一定是不完整的
-                continue;
-            }
-
-            // 拿出每一行数据出来
-            let lineEndIndex = extractSSELine(buffer);
-            while (lineEndIndex != null) {
-                // 截取出来然后解析
-                let line = buffer.slice(0, lineEndIndex + 1);
-                let lineStr = new TextDecoder('utf-8').decode(line);
-                // 切掉开头和结尾的东西
-                yield lineStr.slice(5, lineStr.length - 2);
-
-                if (lineEndIndex == buffer.length - 1) {
-                    // 这个时候不能去切了，直接返回空数组可能效率更高
-                    buffer = new Uint8Array(0);
-                    lineEndIndex = null;
-                } else {
-                    buffer = buffer.subarray(lineEndIndex + 1);
-                    lineEndIndex = extractSSELine(buffer);
-                }
-            }
-        }
-
-        // 处理掉剩余部份
-        if (buffer.length > 0) {
-            let lastLineEndIndex = extractSSELine(buffer);
-
-            while (lastLineEndIndex != null) {
-                let line = buffer.slice(0, lastLineEndIndex + 1);
-                let lineStr = new TextDecoder('utf-8').decode(line);
-                yield lineStr.slice(5, lineStr.length - 2);
-
-                buffer = buffer.subarray(lastLineEndIndex + 1);
-                lastLineEndIndex = extractSSELine(buffer);
-            }
-
-            if (buffer.length > 0) {
-                // 有问题，数据不完整
-                throw new Error('SSE data is not complete');
+            for (const message of parser.feed(result.value)) {
+                if (signal?.aborted) throw signal.reason;
+                yield message;
             }
         }
     } catch (error) {
-        console.error('SSE error:', error);
-        return false;
+        failure = error;
+        throw error;
     } finally {
-        if (reader != null) {
+        if (reader !== undefined) {
+            if (!completed) void reader.cancel(failure).catch(() => {});
             reader.releaseLock();
+        } else if (response?.body !== null && response?.body !== undefined) {
+            void response.body.cancel(failure).catch(() => {});
         }
     }
-
-    return true;
 }

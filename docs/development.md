@@ -56,11 +56,11 @@ node --test --test-timeout=10000 tests/sse.test.js
 
 工作流缓存 npm 下载内容，依据锁文件恢复依赖；每项任务上限 10 分钟。checkout/setup-node 固定到已核对的版本 commit，token 只需 contents: read。同一分支的新运行取消旧运行，矩阵中一项失败不会提前取消另一项。
 
-实际运行结果以 [GitHub Actions](https://github.com/czf0613/http_client_ts/actions/workflows/ci.yml) 为准。这里的 CI 只验证 Node，不构成浏览器兼容性验收，也不执行 npm 发布。
+实际运行结果以 [GitHub Actions](https://github.com/czf0613/http_client_ts/actions/workflows/ci.yml) 为准。ci.yml 只验证 Node，不构成浏览器兼容性验收；npm 发布由独立的 publish.yml 处理。
 
 ## 包内容与发布
 
-当前版本为 `0.1.3`，package.json 与 package-lock.json 的两处版本一致。包声明 `type: module`，入口为 `dist/index.js`，类型入口为 `dist/index.d.ts`。
+当前版本以 package.json 为准，并与 package-lock.json 的两处版本保持一致。包声明 `type: module`，入口为 `dist/index.js`，类型入口为 `dist/index.d.ts`。
 
 ```sh
 npm pack --dry-run
@@ -76,7 +76,22 @@ README 同时作为仓库和 npm 说明，末尾维护链接指向仓库文件�
 node --input-type=module -e 'import("./dist/index.js").then(m => console.log(Object.keys(m)))'
 ```
 
-应看到三个运行时函数。`ExtendedResponse`、`HttpMethod` 是类型导出，不应出现在 Object.keys 中。提交、推送、版本提升和 npm publish 需要各自的用户指令；本轮修复没有发布新包。
+应看到三个运行时函数。`ExtendedResponse`、`HttpMethod` 是类型导出，不应出现在 Object.keys 中。
+
+### 自动发布到 npm
+
+[publish.yml](../.github/workflows/publish.yml) 在 GitHub Release 发布时触发，跳过 prerelease。它检出 release tag，核对 tag 与 package.json/锁文件版本一致，在 Node 24 上安装依赖并完成 npm test，然后通过 OIDC 执行 `npm publish --access public`。标签可使用 `0.2.0` 或 `v0.2.0` 形式，现有仓库使用前者。
+
+npm Trusted Publisher 对应用户 `czf0613`、仓库 `http_client_ts`、文件名 `publish.yml`，不限定 Environment，并允许 npm publish。无需长期 NPM_TOKEN。工作流使用 GitHub 托管 runner、具备 OIDC 支持的 npm 和 `id-token: write` 权限；发布构建关闭依赖缓存。[npm 配置说明](https://docs.npmjs.com/trusted-publishers/)
+
+用户授权发布后，按以下流程执行：
+
+1. 同步 package.json/锁文件版本，更新发布说明，运行 npm test 和包内容检查。
+2. 提交并推送 master，确认该提交的 Node 22/24 CI 通过。
+3. 为同一提交创建并推送版本 tag，发布对应 GitHub Release；这一步会触发 npm 发布。
+4. 确认 Publish npm 成功，在 npm registry 检查新版本，并从临时消费者目录安装验证。
+
+不能重复发布已有的 name/version 组合。普通 push、PR 和草稿 Release 不会执行 npm publish。创建正式 Release 已是发布动作，不应在仅要求提交代码时顺带执行。
 
 ## 当前验证记录
 

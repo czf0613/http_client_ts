@@ -214,6 +214,8 @@ npm test
 
 [CI](.github/workflows/ci.yml) runs `npm ci` and `npm test` on pushes to `master`, pull requests, and manual dispatches. Both Node versions run independently, including the local HTTP and packed-package checks.
 
+[Publish npm](.github/workflows/publish.yml) runs when a stable GitHub Release is published. It checks that the release tag matches the package version, runs the build and tests, and publishes using npm Trusted Publishing (OIDC). See the [release procedure](docs/development.md#自动发布到-npm).
+
 `npm run build` generates ignored `dist/` JavaScript and declarations. `npm pack --dry-run` builds and previews package contents without publishing.
 
 - [Architecture](docs/architecture.md)

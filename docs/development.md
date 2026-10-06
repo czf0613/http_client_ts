@@ -103,7 +103,8 @@ npm Trusted Publisher 对应用户 `czf0613`、仓库 `http_client_ts`、文件�
 | 原生 JS 直接导入 dist 与安装后的包名入口 | 通过，由正式测试持续覆盖 |
 | 真实本地 HTTP 取消与数据传递 | 通过，由正式测试持续覆盖 |
 | 缺少原生 Response.bytes 的场景 | 调用 bytesWithTimeout 报错，其他方法仍正常；无回退 |
-| 浏览器运行、跨 Node 版本矩阵、已发布 npm 包 | 未验证 |
+| GitHub 托管 Ubuntu 的 Node 22/24 矩阵 | CI 已验证；后续结果见工作流记录 |
+| 浏览器运行 | 未验证 |
 
 B01 的最初红灯是原生 JS 测试报告 ERR_MODULE_NOT_FOUND；修复源码后同一测试入口可以运行。早期临时探针已经被正式 JS 回归测试替代，不再作为验收依据。
 

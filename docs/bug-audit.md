@@ -1,6 +1,6 @@
 # B01–B15 修复与行为决策记录
 
-审查及修复日期：2026-10-06。问题来自实现基线 `9f1aa58`；下表记录已完成的修复及正式回归覆盖，不是待实施提案。修复已提交为 `3a829de`，尚未发布 npm 包。
+审查及修复日期：2026-10-06。问题来自实现基线 `9f1aa58`；下表记录已完成的修复及正式回归覆盖，不是待实施提案。修复已提交为 `3a829de`，纳入 [0.2.0 发布说明](releases/0.2.0.md)。
 
 库仍使用 TypeScript 开发；运行时验收全部改为原生 Node 执行的 JavaScript，消费生成的 JS 和安装后的包入口。最终 `npm test` 包含构建并通过 43 项测试。完整环境和限制见 [维护指南](development.md)，使用方式见 [README](../README.md)。
 
@@ -77,4 +77,4 @@ SSE maxEventBytes 另按正安全整数校验，默认 8388608；0 不用于关�
 
 旧调用者主要需要调整 SSE 的错误处理：从检查最终 false 改为 try/catch；不要再手动删除过去误保留的协议空格。未终止的 EOF 数据不会作为错误或事件返回。超时会实际取消读取、0 会关闭期限、非法值不再交给平台隐式转换。超大 SSE 事件可按需要提高第九个参数的上限。
 
-本次修复验收覆盖本机 Node 22.21.1、生成包的原生 ESM 导入、内存流和真实本地 HTTP 连接。后续 Node 22/24 矩阵结果见 [CI](https://github.com/czf0613/http_client_ts/actions/workflows/ci.yml)。浏览器及 npm 上已发布版本尚未验证，也未发布本地修复。库代码保持零运行时依赖，测试没有公网服务依赖。
+本次修复验收覆盖本机 Node 22.21.1、生成包的原生 ESM 导入、内存流和真实本地 HTTP 连接。Node 22/24 矩阵结果见 [CI](https://github.com/czf0613/http_client_ts/actions/workflows/ci.yml)，发布结果见 [Publish npm](https://github.com/czf0613/http_client_ts/actions/workflows/publish.yml)。浏览器矩阵尚未验证。库代码保持零运行时依赖，测试没有公网服务依赖。
